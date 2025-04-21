@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Problem Tracker</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #202020;
+      color: #737373;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 40px;
+    }
+
+    h1 {
+      margin-bottom: 30px;
+    }
+
+    .section {
+      background-color: #fff;
+      border-radius: 10px;
+      padding: 20px 40px;
+      margin: 10px;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+      font-size: 20px;
+    }
+
+    .buttons {
+      margin-top: 20px;
+      display: flex;
+      gap: 15px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    button {
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      font-size: 16px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background-color 0.3s ease;
+    }
+
+    button:hover {
+      background-color: #45a049;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Tracker</h1>
+
+  <div class="section" id="problemSection">Problems Solved: N/A</div>
+  <div class="section" id="timeSection">Time: 0d 0h 0m 0s</div>
+
+  <div class="buttons">
+    <button onclick="startTimer()">Start Time</button>
+    <button onclick="stopTimer()">Stop Time</button>
+    <button onclick="resetTimer()">Reset Time</button>
+    <button onclick="incrementProblems()">Problems +1</button>
+    <button onclick="decrementProblems()">Problems -1</button>
+  </div>
+
+  <script>
+    let problemCount = null;
+    let startTime = null;            // timestamp in ms when timer was (re)started
+    let elapsedBeforePause = 0;      // ms accumulated before pause
+    let timerInterval = null;
+    let isRunning = false;
+
+    // ———— Load state from localStorage ————
+    window.onload = function () {
+      const p = localStorage.getItem("problemCount");
+      const st = localStorage.getItem("startTime");
+      const ebp = localStorage.getItem("elapsedBeforePause");
+      const run = localStorage.getItem("isRunning");
+
+      if (p !== null) problemCount = parseInt(p, 10);
+      if (st !== null) startTime = parseInt(st, 10);
+      if (ebp !== null) elapsedBeforePause = parseInt(ebp, 10);
+      if (run !== null) isRunning = JSON.parse(run);
+
+      updateProblemDisplay();
+      updateTimeDisplay();
+
+      // Only resume ticking if it was running at last unload
+      if (isRunning) {
+        scheduleTick();
+      }
+    };
+
+    // ———— Problem counter ————
+    function updateProblemDisplay() {
+      document.getElementById("problemSection").textContent =
+        `Problems Solved: ${problemCount === null ? "N/A" : problemCount}`;
+    }
+
+    function incrementProblems() {
+      if (problemCount === null) problemCount = 0;
+      problemCount++;
+      localStorage.setItem("problemCount", problemCount);
+      updateProblemDisplay();
+    }
+
+    function decrementProblems() {
+      if (problemCount === null) problemCount = 0;
+      if (problemCount > 0) problemCount--;
+      localStorage.setItem("problemCount", problemCount);
+      updateProblemDisplay();
+    }
+
+    // ———— Timer controls ————
+    function startTimer() {
+      const now = Date.now();
+
+      if (!isRunning) {
+        if (startTime === null) {
+          // first-ever start
+          elapsedBeforePause = 0;
+          startTime = now;
+        } else {
+          // resuming from pause
+          startTime = now - elapsedBeforePause;
+        }
+
+        isRunning = true;
+        localStorage.setItem("startTime", startTime);
+        localStorage.setItem("elapsedBeforePause", elapsedBeforePause);
+        localStorage.setItem("isRunning", JSON.stringify(isRunning));
+        scheduleTick();
+      }
+    }
+
+    function stopTimer() {
+      if (isRunning) {
+        clearInterval(timerInterval);
+        timerInterval = null;
+        isRunning = false;
+        // capture how much time has passed so far
+        elapsedBeforePause = Date.now() - startTime;
+        localStorage.setItem("elapsedBeforePause", elapsedBeforePause);
+        localStorage.setItem("isRunning", JSON.stringify(isRunning));
+      }
+    }
+
+    function resetTimer() {
+      clearInterval(timerInterval);
+      timerInterval = null;
+      startTime = null;
+      elapsedBeforePause = 0;
+      isRunning = false;
+      localStorage.removeItem("startTime");
+      localStorage.removeItem("elapsedBeforePause");
+      localStorage.setItem("isRunning", JSON.stringify(isRunning));
+      document.getElementById("timeSection").textContent = "Time: 0d 0h 0m 0s";
+    }
+
+    function scheduleTick() {
+      // immediate update then every second
+      updateTimeDisplay();
+      timerInterval = setInterval(updateTimeDisplay, 1000);
+    }
+
+    function updateTimeDisplay() {
+      let diffMs;
+      if (isRunning && startTime !== null) {
+        diffMs = Date.now() - startTime;
+      } else {
+        diffMs = elapsedBeforePause;
+      }
+      const totalSec = Math.floor(diffMs / 1000);
+      const days    = Math.floor(totalSec / 86400);
+      const hours   = Math.floor((totalSec % 86400) / 3600);
+      const minutes = Math.floor((totalSec % 3600) / 60);
+      const seconds = totalSec % 60;
+
+      document.getElementById("timeSection").textContent =
+        `Time: ${days}d ${hours}h ${minutes}m ${seconds}s`;
+    }
+  </script>
+</body>
+</html>
